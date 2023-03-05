@@ -55,7 +55,7 @@ class sarsa():
 
     def update(self, reward, state, action, next_state, next_action=None):  # next action can be none in the expected
 
-        if self.expected:  # todo expected not implemented
+        if self.expected:
             self.q[state, action] = self.q[state, action] + self.a * (
                     reward + self.g * np.sum(self.q[next_state, :] * self.boltzmann(next_state))
                     - self.q[state, action])
