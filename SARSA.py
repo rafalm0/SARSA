@@ -20,8 +20,10 @@ import math
 import random
 import os
 
+
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 rnd = np.random.default_rng(112233)
+
 
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
@@ -55,7 +57,7 @@ class sarsa():
 
     def update(self, reward, state, action, next_state, next_action=None):  # next action can be none in the expected
 
-        if self.expected:
+        if self.expected: 
             self.q[state, action] = self.q[state, action] + self.a * (
                     reward + self.g * np.sum(self.q[next_state, :] * self.boltzmann(next_state))
                     - self.q[state, action])
@@ -67,7 +69,7 @@ class sarsa():
 
     def choose(self, env, state, greedy):
 
-        if np.argmax(self.q[state]) == 0:
+        if np.max(self.q[state]) == 0:
             # random sampling
             chosen = rnd.choice(list(range(env.action_space.n)))
         elif greedy or (self.temp <= 0):  # temp 0 means greedy, and cannot go to boltzmann to avoid division by 0
@@ -86,16 +88,17 @@ class sarsa():
         lower = np.sum(upper)
         return upper / lower
 
-    # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
+        
 
 
-#
-# ## Running the model
+# <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
+# 
+# ## Building the training process
 
 # In[4]:
 
 
-# defining episode
+# defining one episode
 def episode(model, env, greedy=0):
     env.reset()
     state = 0  # initializing the state
@@ -116,13 +119,16 @@ def episode(model, env, greedy=0):
         new_state, reward, ended, time_limit, prob = env.step(action)
 
         if model.expected:
-            # updating
-            model.update(reward, state, action, new_state, None)
+            if greedy: # testing episode wont update
+                # updating
+                model.update(reward, state, action, new_state, None)
         else:
             # choose A' from S'
             new_action = model.choose(env, new_state, greedy)
-            # updating
-            model.update(reward, state, action, new_state, new_action)
+            
+            if greedy: # testing episode wont update
+                # updating
+                model.update(reward, state, action, new_state, new_action)
             # A <- A'
             action = new_action
 
@@ -139,58 +145,93 @@ def episode(model, env, greedy=0):
 
 
 # defining process for each of the segments
-def segment(model, env, training):
-    segment_results = []
+def segment(model, env, training,verbose):
+    train_results = []
+    test_results = []
 
     for i, mode in enumerate(training):
-        print(f"-{i + 1}", end='')
+        if verbose:
+            print(f"-{i + 1}", end='')
         episode_result = episode(model, env, mode)
-        segment_results.append(episode_result)
+        if mode:
+            train_results.append(episode_result)
+        else:
+            test_results.append(episode_result)
 
-    return segment_results
+    return train_results, test_results
 
 
 # In[6]:
 
 
 # defining process for each of the runs
-def run(model, env, segments_n=500, training=np.append(np.zeros(10), [-1])):
+def run(model, env, segments_n=500, training=np.append(np.zeros(10), [-1]),verbose=True):
     run_results = []
     for i, mode in enumerate(range(segments_n)):
-        print(f"\n{i + 1}th Segment:", end='')
-        segment_results = segment(model, env, training)
-        run_results.append(segment_results)
+        if verbose:
+            print(f"\n{i + 1}th Segment:", end='')
+        train_results, test_results = segment(model, env, training,verbose)
+        run_results.append([train_results, test_results])
 
     return np.array(run_results)
 
 
+# <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
+# <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
+# 
+# 
+# ## Running the model
+
 # In[7]:
 
 
-# Declaring the model
-model = sarsa(matrix, expected=True)
+# configurations
+
+temperatures = [.5, .1, .001]
+learning_rates = [.85, .5, .15]
+
 
 # In[8]:
 
 
-# Runing the training
+# Declaring the model
 
-results = run(model, env)
+models = []
+for temp in temperatures:
+    for alpha in learning_rates:
+        models.append(sarsa(matrix,alpha=alpha,temperature=temp, expected=True))
+        
+
 
 # In[9]:
 
 
-general_result = results.flatten()
+# Runing the training
+results = []
+for model in models:
+    results.append(run(model,env,verbose=False))
 
-# In[10]:
-
-
-plt.figure(figsize=(12, 5))
-plt.xlabel("Run number")
-plt.ylabel("Outcome")
-ax = plt.gca()
-ax.set_facecolor('#efeeea')
-plt.bar(range(len(general_result)), general_result, color="#0A047A", width=1.0)
-plt.show()
 
 # In[ ]:
+
+
+results
+
+
+# In[ ]:
+
+
+# plt.figure(figsize=(12, 5))
+# plt.xlabel("Episode number")
+# plt.ylabel("Outcome")
+# ax = plt.gca()
+# ax.set_facecolor('#efeeea')
+# plt.bar(range(len(general_result)), general_result, color="#0A047A", width=1.0)
+# plt.show()
+
+
+# In[ ]:
+
+
+
+
