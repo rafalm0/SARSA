@@ -20,10 +20,8 @@ import math
 import random
 import os
 
-
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 rnd = np.random.default_rng(112233)
-
 
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
@@ -57,7 +55,7 @@ class sarsa():
 
     def update(self, reward, state, action, next_state, next_action=None):  # next action can be none in the expected
 
-        if self.expected: 
+        if self.expected:
             self.q[state, action] = self.q[state, action] + self.a * (
                     reward + self.g * np.sum(self.q[next_state, :] * self.boltzmann(next_state))
                     - self.q[state, action])
@@ -88,8 +86,6 @@ class sarsa():
         lower = np.sum(upper)
         return upper / lower
 
-        
-
 
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
 # 
@@ -119,14 +115,14 @@ def episode(model, env, greedy=0):
         new_state, reward, ended, time_limit, prob = env.step(action)
 
         if model.expected:
-            if greedy: # testing episode wont update
+            if greedy:  # testing episode wont update
                 # updating
                 model.update(reward, state, action, new_state, None)
         else:
             # choose A' from S'
             new_action = model.choose(env, new_state, greedy)
-            
-            if greedy: # testing episode wont update
+
+            if greedy:  # testing episode wont update
                 # updating
                 model.update(reward, state, action, new_state, new_action)
             # A <- A'
@@ -138,42 +134,38 @@ def episode(model, env, greedy=0):
         if time_limit:
             break
 
-    return reward
+    return {'reward': reward, 'mode': greedy}
 
 
 # In[5]:
 
 
 # defining process for each of the segments
-def segment(model, env, training,verbose):
-    train_results = []
-    test_results = []
+def segment(model, env, training, verbose):
+    results = {}
 
     for i, mode in enumerate(training):
         if verbose:
             print(f"-{i + 1}", end='')
         episode_result = episode(model, env, mode)
-        if mode:
-            train_results.append(episode_result)
-        else:
-            test_results.append(episode_result)
+        results[i + 1] = episode_result
 
-    return train_results, test_results
+    return results
 
 
 # In[6]:
 
 
 # defining process for each of the runs
-def run(model, env, segments_n=500, training=np.append(np.zeros(10), [-1]),verbose=True):
-    run_results = []
+def run(model, env, segments_n=500, training=np.append(np.zeros(10), [1]), verbose=True):
+    run_results = {}
     for i, mode in enumerate(range(segments_n)):
         if verbose:
             print(f"\n{i + 1}th Segment:", end='')
-        train_results, test_results = segment(model, env, training,verbose)
-        run_results.append([train_results, test_results])
 
-    return np.array(run_results)
+        run_results[i + 1] = segment(model, env, training, verbose)
+
+    return run_results
 
 
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
@@ -187,9 +179,10 @@ def run(model, env, segments_n=500, training=np.append(np.zeros(10), [-1]),verbo
 
 # configurations
 
-temperatures = [.5, .1, .001]
+temperatures = [.5, .1, .01]
 learning_rates = [.85, .5, .15]
-
+expected = ['expected', 'classic']
+n_runs = 10
 
 # In[8]:
 
@@ -197,41 +190,75 @@ learning_rates = [.85, .5, .15]
 # Declaring the model
 
 models = []
-for temp in temperatures:
+general_results = {}
+for type_ in expected:
+    general_results[type_] = {}
     for alpha in learning_rates:
-        models.append(sarsa(matrix,alpha=alpha,temperature=temp, expected=True))
-        
+        general_results[type_][alpha] = {}
+        for temp in temperatures:
+            general_results[type_][alpha][temp] = {}
 
+            bool_type = True if type_ == 'expected' else False
+            models.append(sarsa(matrix.copy(), alpha=alpha, temperature=temp, expected=bool_type))
 
 # In[9]:
 
 
 # Runing the training
-results = []
+
 for model in models:
-    results.append(run(model,env,verbose=False))
+    model_type = 'expected' if model.expected else 'classic'
+    print(f'Training on |temperature: {str(model.temp)}\t| alpha: {str(model.a)} \t| {model_type} Sarsa')
 
+    for i in range(n_runs):
+        general_results[model_type][model.a][model.temp][i + 1] = run(model, env, verbose=False)
+
+# In[10]:
+
+
+df = pd.DataFrame.from_dict({(a, b, c, d, e, f): general_results[a][b][c][d][e][f]
+                             for a in general_results.keys()
+                             for b in general_results[a].keys()
+                             for c in general_results[a][b].keys()
+                             for d in general_results[a][b][c].keys()
+                             for e in general_results[a][b][c][d].keys()
+                             for f in general_results[a][b][c][d][e].keys()},
+                            orient='index')
+
+# In[11]:
+
+
+df = df.reset_index()
+df = df.rename(
+    columns={'level_0': 'sarsa', 'level_1': 'alpha', 'level_2': 'temperature', 'level_3': 'run', 'level_4': 'segment',
+             'level_5': 'episode'})
+df
+
+# <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
+# <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
+# 
+# ## Plotting
+# Pick 3 settings of the temperature parameter used in the exploration and 3 settings of the learning rate. You need to plot:
+
+# ### First question
+
+# One u-shaped graph that shows the effect of the parameters on the final training performance,
+# expressed as the return of the agent (averaged over the last 10 training episodes and the 10
+# runs); note that this will typically end up as an upside-down u.
+
+# In[12]:
+
+
+df_training = df[df['mode'] == 0]
+
+for model in df_training['sarsa'].unique():
+    df_ = df_training[df_training['sarsa'] == model]
+    df_ = df_.apply(lambda a: a, axis=1)
+    df_['seg-ep'] = df_['segment'] * max(df_['episode']) + df_['episode'] - 10
+    df_ = df_[['alpha', 'temperature', 'run', 'reward', 'seg-ep']]
+    df_ = df_.groupby(['alpha', 'temperature', 'seg-ep']).mean()
+    df_ = df_.dropna().reset_index()
+    df_ = df_.groupby(['alpha', 'temperature']).rolling(10).mean()['reward'].dropna()
+    print(df_)
 
 # In[ ]:
-
-
-results
-
-
-# In[ ]:
-
-
-# plt.figure(figsize=(12, 5))
-# plt.xlabel("Episode number")
-# plt.ylabel("Outcome")
-# ax = plt.gca()
-# ax.set_facecolor('#efeeea')
-# plt.bar(range(len(general_result)), general_result, color="#0A047A", width=1.0)
-# plt.show()
-
-
-# In[ ]:
-
-
-
-
