@@ -232,7 +232,6 @@ df = df.reset_index()
 df = df.rename(
     columns={'level_0': 'sarsa', 'level_1': 'alpha', 'level_2': 'temperature', 'level_3': 'run', 'level_4': 'segment',
              'level_5': 'episode'})
-df
 
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
 # <div style="border-bottom: 3px solid black; margin-bottom:5px"></div>
