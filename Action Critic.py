@@ -214,47 +214,38 @@ for alpha in learning_rates:
             else:
                 df = pd.concat([df, result_df])
 
-df.to_csv('Qlearning.csv',index=False,sep=';',encoding='utf-8')
-
-
-
-
-
-
+df.to_csv('Qlearning.csv', index=False,sep=';',encoding='utf-8')
 
 
 # AC configurations
+
+
 n_bins = 10
 
 epsilons = [.2]
 learning_rates = [(.05, .15)]
 
 n_runs = 2
-rolling_window = 10
-
-training_size = 10
-testing_size = 1
 
 models = []
 
-AC_results = {}
-for alpha in learning_rates:
-    AC_results[alpha] = {}
-    for epsilon in epsilons:
-        AC_results[alpha][epsilon] = {}
-
-        # creating model to use as standard for each run config
-        models.append(AC(env, alpha=alpha, gamma=1, epsilon=epsilon))
+df = None
 
 # Running the training
+for alpha in learning_rates:
+    for epsilon in epsilons:
+        print(f'Training on |Epsilon: {str(epsilon)}\t| Alpha: {str(alpha)}')
 
-for model in models:
-    print(f'Training on |Epsilon: {str(model.e)}\t| Alpha: {str(model.a)}')
-
-    for i in range(n_runs):
-        # creating model copies for each run
-        n_model = AC(env, alpha=model.a, epsilon=model.e)
-        AC_results[model.a][model.e][i] = run(n_model, env, verbose=True, penalty=250)
+        episode_results = []
+        for i in range(n_runs):
+            result_df = pd.DataFrame()
+            # creating model copies for each run
+            n_model = AC(env, alpha=alpha, epsilon=epsilon)
+            result_df['ep_reward'] = run(n_model, env, verbose=True, penalty=250)
+            result_df['alpha'] = alpha
+            result_df['epsilon'] = epsilon
+            result_df['run'] = i
+            result_df.to_csv(f'AC_{str(alpha)}_{str(epsilon)}_{str(run)}.csv', index=False, sep=';', encoding='utf-8')
 
 pass
 print()
