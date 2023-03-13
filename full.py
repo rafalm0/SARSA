@@ -271,7 +271,7 @@ for m, model in enumerate(df_['type'].unique()):
         ax[m].plot(line_values, label=f'Temperature = {str(temperature)}')
         ax[m].legend()
 
-plt.show()
+# plt.show()
 # For the choice of parameters, one of the temperatures was chosen as zero because 
 
 # #### Second plot
@@ -314,7 +314,7 @@ for m, model in enumerate(df_2['type'].unique()):
         ax[m].plot(line_values, label=f'Temperature = {str(temperature)}')
         ax[m].legend()
 
-plt.show()
+# plt.show()
 
 # #### Third plot
 
@@ -327,6 +327,12 @@ plt.show()
 fig, ax = plt.subplots(len(learning_rates), len(temperatures), sharey='row', sharex='col', figsize=(12, 7))
 
 ax[0][1].set_title("Reward over training steps", y=1.2, fontsize=20)
+
+# for line smoothing
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
 for i, alpha in enumerate(learning_rates):
 
@@ -345,10 +351,13 @@ for i, alpha in enumerate(learning_rates):
 
         for model in model_name:
             runs_values = []
-            for k, group in df[df['alpha'] == alpha][df['temp'] == temperature][df['type'] == model][['reward','run']].groupby('run'):
+            mini_df = df[(df['alpha'] == alpha) & (df['temp'] == temperature) & (df['type'] == model)][
+                ['reward', 'run']]
+            for k, group in mini_df.groupby('run'):
                 runs_values.append(list(group['reward']))
-            runs_values = np.mean(np.array(runs_values).T, axis=0)
-            ax[i][j].plot(list(range(len(runs_values.T))), runs_values.T, label=model)
+            runs_values_avg = moving_average(np.mean(np.array(runs_values), axis=0),25)
+            runs_values_std = moving_average(np.std(np.array(runs_values), axis=0), 25)
+            ax[i][j].plot(list(range(len(runs_values_avg))), runs_values_avg, label=model,linewidth=0.5)
             ax[i][j].legend()
             ax[i][j].grid(visible=True)
 

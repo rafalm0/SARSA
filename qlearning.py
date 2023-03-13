@@ -98,7 +98,7 @@ def episode(model, env, render=False, penalty=250):
         if ended:
             reward -= penalty
 
-        model.update(reward, state, action, new_state, final=ended)
+        model.update(reward, state, action, new_state)
 
         # S <- S'
         state = new_state
