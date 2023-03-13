@@ -101,20 +101,20 @@ def episode(model, env, greedy=0):
     ended = False
     reward = 0
 
-    if not model.expected:
+    if not model.model_name:
         # Choose A from S
         action = model.choose(env, state, greedy)
 
     while not ended:
 
-        if model.expected:
+        if model.model_name:
             # Choose A from S
             action = model.choose(env, state, greedy)
 
         # take A from S and get S'
         new_state, reward, ended, time_limit, prob = env.step(action)
 
-        if model.expected:
+        if model.model_name:
             if greedy:  # testing episode wont update
                 # updating
                 model.update(reward, state, action, new_state, None)
@@ -179,7 +179,7 @@ def run(model, env, segments_n=500, training=np.append(np.zeros(10), [1]), verbo
 
 # configurations
 
-temperatures = [.5, .1, .01]
+temperatures = [.0,.1,.01]
 learning_rates = [.85, .5, .15]
 expected = ['expected', 'classic']
 n_runs = 10

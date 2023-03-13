@@ -8,13 +8,13 @@ rnd = np.random.default_rng(112233)
 env = gym.make('CartPole-v1')
 env.reset()
 
-# Initialize the policy and value function
+
 num_states = 10 ** len(env.reset()[0])
 num_actions = env.action_space.n
-policy = np.ones((num_states, num_actions)) / num_actions  # Uniform random policy
-V = np.zeros(num_states)
+policy = np.ones((num_states, num_actions)) / num_actions
+V = np.zeros(num_states) # value function
 
-# Set the learning rates and discount factor
+# Set alpha  and gamma
 alpha_critic = 0.1
 alpha_actor = 0.01
 g = 0.99
@@ -49,51 +49,50 @@ for episode in range(1000):
     state = get_s(env.reset()[0])
     done = False
 
-    # Initialize eligibility traces
-    e_critic = np.zeros(num_states)
-    e_actor = np.zeros((num_states, num_actions))
+    # eligibility traces
+    z_critic = np.zeros(num_states)
+    z_actor = np.zeros((num_states, num_actions))
 
-    # Initialize the episode history
     history = []
 
     while not done:
-        # Sample an action from the policy
-        action_probs = np.exp(policy[state]) / np.sum(np.exp(policy[state]))
-        if rnd.random() < e:
-            action = rnd.choice(list(range(num_actions)))
-        else:
-            action = np.random.choice(num_actions, p=action_probs)
 
-        # Take a step in the environment
+        action_probs = np.exp(policy[state]) / np.sum(np.exp(policy[state]))
+
+        # e-greedy
+        if rnd.random() < e:
+            action = rnd.choice(list(range(num_actions)))  # random action to increase exploration
+        else:
+            action = np.random.choice(num_actions, p=action_probs)  # softmax action
+
+        # Take action A observe S', R
         next_state, reward, done, _, _ = env.step(action)
         next_state = get_s(next_state)
 
-        # Update the TD error and the value function
+        # if S' is terminal then v S' = 0
         target = reward + g * V[next_state] if not done else reward
         TD_error = target - V[state]
         V[state] += alpha_critic * TD_error
 
         # Update the eligibility traces for the critic and actor
-        e_critic[state] += 1
-        e_actor[state, action] += 1
+        z_critic[state] += 1
+        z_actor[state, action] += 1
 
-        # Update the policy parameters
-        grad_log_policy = e_actor / (
-                    np.sum(e_actor, axis=1, keepdims=True) + 1e-8)  # Compute the gradient of the log policy
+        # Update
+        grad_log_policy = z_actor / (np.sum(z_actor, axis=1, keepdims=True) + 1e-8)
         policy[state] += alpha_actor * TD_error * grad_log_policy[state]
 
-        # Decay the eligibility traces
-        e_critic *= g
-        e_actor *= g
+        # over-time decay of the traces
+        z_critic *= g
+        z_actor *= g
 
-        # Update the current state
+        # S <- S'
         state = next_state
 
-        # Save the current state, action, and reward for the episode history
-        history.append((state, action, reward))
+        history.append(reward)
 
-    # Print the episode reward
-    episode_reward = sum([r for (_, _, r) in history])
+
+    episode_reward = sum(history)
     rewards_history.append(episode_reward)
     print(
         f"Episode {episode}: reward={episode_reward} | rolling avg of last 10 epsodes: {np.mean(rewards_history[-10:])}")
